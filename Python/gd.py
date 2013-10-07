@@ -18,8 +18,7 @@ def normalize(weights):
 loss_old = 0
 loss_new = 999
 weights = [1,1]
-eps = 0.001 # step size
-precision = 0.00001
+eps = 0.01 # step size
 
 answer_weights = [-0.6,0.4]
 normalize(answer_weights)
@@ -36,7 +35,7 @@ def logistic_derivative_i(x, x_i_feature):
     return y * (1 - y) * x_i_feature
 
 for x in xrange(0,10000):
-    features[x] = (random.random(),random.random())
+    features[x] = (0.3, random.random()) # First feature is bias (constant)
     labels[x] = logistic(features[x][0]*answer_weights[0] + features[x][1]*answer_weights[1])
     if labels[x]>0.5:
         labels[x] = 0.99
@@ -66,11 +65,11 @@ while True:
 
         loss_new += loss
 
-        g0 = (-1.0 / 10000.0) * labels[x] * (1.0 / estimate) * features[x][0]
-        g1 = (-1.0 / 10000.0) * labels[x] * (1.0 / estimate) * features[x][1]
+        g0 = -1 * labels[x] * (1.0 / estimate) * features[x][0]
+        g1 = -1 * labels[x] * (1.0 / estimate) * features[x][1]
 
-        g0 += (-1.0 / 10000.0) * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][0]
-        g1 += (-1.0 / 10000.0) * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][1]
+        g0 += -1 * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][0]
+        g1 += -1 * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][1]
 
         '''
         Better least squares gradient, takes derivative of x^2
@@ -111,17 +110,50 @@ while True:
         gradients[0] += g0
         gradients[1] += g1
 
-    print '***'
-    print weights
-    weights[0] -= eps * gradients[0]
-    weights[1] -= eps * gradients[1]
-    print gradients
+        if (x+1)%1000 == 0:
+            # L2 regularization
+            unscaled_l2 = math.sqrt(weights[0]*weights[0] + weights[1]*weights[1])
+            loss_new += 5 * unscaled_l2
+
+            # L1 regularization
+            #unscaled_l1 = weights[0] + weights[1]
+            #loss_new += 5 * unscaled_l1
+
+            # Partial derivative of L2 regularization
+            gradients[0] += 5 * weights[0] / unscaled_l2
+            gradients[1] += 5 * weights[1] / unscaled_l2
+
+            # Calculate the regularization
+            
+            weights[0] -= (eps / 10000.0) * gradients[0]
+            weights[1] -= (eps / 10000.0) * gradients[1]
+            gradients = [0,0]
+
+    # L1 regularization
+    l1_strength = (5.0 * eps) / 10000.0
+    if abs(weights[0]) < l1_strength:
+        weights[0] = 0
+    elif weights[0]>0:
+        weights[0] -= l1_strength
+    else:
+        weights[0] += l1_strength
+
+    if abs(weights[1]) < l1_strength:
+        weights[1] = 0
+    elif weights[1]>0:
+        weights[1] -= l1_strength
+    else:
+        weights[1] += l1_strength
+        
+
+    print '***',count
     print weights
     print loss_new
     print '***'
     count+=1
-    if count>100: break
+    if count>200: break
 normalize(weights)
 print weights
+print answer_weights
 
 
