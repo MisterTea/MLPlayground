@@ -2,74 +2,101 @@ import random
 import math
 import sys
 
-random.seed(1)
-# From calculation, we expect that the local minimum occurs at x=9/4
+random.seed(1L)
+
+labels = []
+features = []
+NUM_FEATURES = 0
+
+#Parse libsvm
+fp = open("datasets/a1a/a1a","r")
+while True:
+    line = fp.readline()
+    if len(line)==0:
+        break
+    tokens = line.split(" ")
+    del tokens[-1]
+    labels.append(0 if int(tokens[0])==-1 else 1)
+    features.append({})
+    for x in xrange(1,len(tokens)):
+        index,feature = tokens[x].split(":")
+        index = int(index)
+        NUM_FEATURES = max(NUM_FEATURES,index)
+        features[-1][index-1] = float(int(feature))
 
 def normalize(weights):
-    print weights
     sum = 0.0
     for x in xrange(0,len(weights)):
         sum += math.fabs(weights[x])
-    for x in xrange(0,len(weights)):
-        weights[x] /= sum
-    print weights
-
+    if sum > 1e-6:
+        for x in xrange(0,len(weights)):
+            weights[x] /= sum
 
 loss_old = 0
-loss_new = 999
-weights = [1,1]
-eps = 0.01 # step size
+loss_new = 0
 
-answer_weights = [-0.6,0.4]
-normalize(answer_weights)
-normalize(weights)
+weights = [random.gauss(0, 1.0)]*NUM_FEATURES
+eps = 0.005 # step size
 
-labels = [0]*10000
-features = [(0,)]*10000
+NUM_INPUTS = len(features)
 
 def logistic(x):
-    return 1 / (1 + math.exp(-x))
+    if x>=100: return 0.99
+    if x<=-100: return 0.01
+    ret = 1 / (1 + math.exp(-x))
+    return min(0.99, max(0.01, ret))
+
 
 def logistic_derivative_i(x, x_i_feature):
     y = logistic(x)
     return y * (1 - y) * x_i_feature
 
-for x in xrange(0,10000):
-    features[x] = (0.3, random.random()) # First feature is bias (constant)
-    labels[x] = logistic(features[x][0]*answer_weights[0] + features[x][1]*answer_weights[1])
-    if labels[x]>0.5:
-        labels[x] = 0.99
-    else:
-        labels[x] = 0.01
+def dot(v1,v2):
+    sum = 0.0
+    for x in xrange(0,len(v1)):
+        sum += v1[x]*v2[x]
+    return sum
+
+def dotSparse(v1,v2):
+    sum = 0.0
+    for index,value in v1.iteritems():
+        sum += value*v2[index]
+    return sum
+
+def printArray(v):
+    print "[" + ", ".join('%+0.2f' % item for item in v) + "]"
+
+BATCH_SIZE = NUM_INPUTS/20
 
 count=0
 while True:
     loss_old = loss_new
     loss_new = 0
-    gradients = [0,0]
-    for x in xrange(0,10000):
-        f0 = features[x][0]
-        f1 = features[x][1]
-        w0 = weights[0]
-        w1 = weights[1]
+    gradients = [0]*NUM_FEATURES
+    for x in xrange(NUM_INPUTS/20,NUM_INPUTS):
+        #f0 = features[x][0]
+        #f1 = features[x][1]
+        #w0 = weights[0]
+        #w1 = weights[1]
 
-        estimate = features[x][0]*weights[0] + features[x][1]*weights[1]
+        estimate = dotSparse(features[x],weights)
 
         # Log loss of logistic fn
         estimate = logistic(estimate)
-        estimate = min(0.99, max(0.01, estimate))
-        if estimate>0.5: estimate = 0.99
-        else: estimate = 0.01
-        loss = (labels[x] * math.log(estimate)) + (1-labels[x]) * math.log(1-estimate)
-        loss *= -1.0 / 10000.0
+        #if estimate>0.5: estimate = 0.99
+        #else: estimate = 0.01
+        loss = -1 * ((labels[x] * math.log(estimate)) + (1-labels[x]) * math.log(1-estimate))
+
+        #Adjust for the number of samples
+        loss /= NUM_INPUTS
 
         loss_new += loss
 
-        g0 = -1 * labels[x] * (1.0 / estimate) * features[x][0]
-        g1 = -1 * labels[x] * (1.0 / estimate) * features[x][1]
-
-        g0 += -1 * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][0]
-        g1 += -1 * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x][1]
+        for y in xrange(0,NUM_FEATURES):
+            gradient = (-1 * labels[x] * (1.0 / estimate) * features[x].get(y,0.0)) + \
+                       ((labels[x] - 1) * features[x].get(y,0.0) / (estimate - 1))
+            #+ (-1 * (1-labels[x]) * (1.0 / (1 - estimate)) * -1 * features[x].get(y,0.0))
+            gradients[y] += gradient / BATCH_SIZE
 
         '''
         Better least squares gradient, takes derivative of x^2
@@ -107,53 +134,71 @@ while True:
         if labels[x]<0.5:
             sys.exit(0)
         '''
-        gradients[0] += g0
-        gradients[1] += g1
+        #gradients[0] += g0
+        #gradients[1] += g1
 
-        if (x+1)%1000 == 0:
-            # L2 regularization
-            unscaled_l2 = math.sqrt(weights[0]*weights[0] + weights[1]*weights[1])
-            loss_new += 5 * unscaled_l2
+        if (x+1)%BATCH_SIZE == 0:
+            for y in xrange(0,NUM_FEATURES):
+                if abs(weights[y])<0.01 and abs(gradients[y])>0.5:
+                    weights[y] -= gradients[y]
+                else:
+                    weights[y] -= eps * gradients[y]
+            gradients = [0]*NUM_FEATURES
 
-            # L1 regularization
-            #unscaled_l1 = weights[0] + weights[1]
-            #loss_new += 5 * unscaled_l1
+    if True:
+        # L2 regularization
+        L2_STRENGTH = 0.05
+        unscaled_l2 = dot(weights,weights)
+        print 'UNSCALED L2',unscaled_l2
+        loss_new += L2_STRENGTH * unscaled_l2 / NUM_INPUTS
 
-            # Partial derivative of L2 regularization
-            gradients[0] += 5 * weights[0] / unscaled_l2
-            gradients[1] += 5 * weights[1] / unscaled_l2
+        # Partial derivative of L2 regularization
+        if unscaled_l2 > 1e-6:
+            for y in xrange(1,NUM_FEATURES):
+                weights[y] -= eps * L2_STRENGTH * weights[y] * 2
 
-            # Calculate the regularization
-            
-            weights[0] -= (eps / 10000.0) * gradients[0]
-            weights[1] -= (eps / 10000.0) * gradients[1]
-            gradients = [0,0]
+    if True:
+        # L1 regularization
+        l1_strength = 0.005
+        loss_new += l1_strength * math.fsum(weights) / NUM_INPUTS
 
-    # L1 regularization
-    l1_strength = (5.0 * eps) / 10000.0
-    if abs(weights[0]) < l1_strength:
-        weights[0] = 0
-    elif weights[0]>0:
-        weights[0] -= l1_strength
-    else:
-        weights[0] += l1_strength
-
-    if abs(weights[1]) < l1_strength:
-        weights[1] = 0
-    elif weights[1]>0:
-        weights[1] -= l1_strength
-    else:
-        weights[1] += l1_strength
+        for y in xrange(1,NUM_FEATURES):
+            if abs(weights[y]) < l1_strength:
+                weights[y] = 0
+            elif weights[y]>0:
+                weights[y] -= l1_strength
+            else:
+                weights[y] += l1_strength
         
 
     print '***',count
-    print weights
+    printArray(weights)
     print loss_new
+    wins=0
+    FP=0
+    FN=0
+    for x in xrange(0,NUM_INPUTS/20):
+        estimate = dotSparse(features[x],weights)
+
+        # Log loss of logistic fn
+        estimate = logistic(estimate)
+
+        if estimate<0.5 and labels[x]<0.5:
+            wins+=1
+        elif estimate>=0.5 and labels[x]>0.5:
+            wins+=1
+        elif labels[x]<0.5:
+            FP+=1
+        else:
+            FN+=1
+    print 'TPR',(wins*100.0)/(NUM_INPUTS/20)
+    print 'FPR',(FP*100.0)/(NUM_INPUTS/20)
+    print 'FNR',(FN*100.0)/(NUM_INPUTS/20)
     print '***'
     count+=1
-    if count>200: break
+    if abs(loss_old-loss_new) < 1e-9 and count >= 10000: break
 normalize(weights)
-print weights
-print answer_weights
+printArray(weights)
+printArray(answer_weights)
 
 

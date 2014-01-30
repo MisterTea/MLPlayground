@@ -14,6 +14,9 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.PairRDDFunctions
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,27 +26,31 @@ import scala.collection.mutable.ListBuffer
 object ScalaWordCount {
 
   def main(args: Array[String]): Unit = {
-    if (args.length < 2) {
-      System.err.println("Usage: ScalaWordCount <master> <file>");
+    if (args.length < 3) {
+      System.err.println("Usage: ScalaWordCount <master> <file> <output_file>");
       System.exit(1);
     }
 
     val ctx = new SparkContext(
-    args(0), "JavaWordCount",
+    args(0), "ScalaWordCount",
     System.getenv("SPARK_HOME"),
-    Seq());
-    val urlLinePairs = ctx.sequenceFile(args(1), classOf[Text], classOf[Text])
-    val lines = urlLinePairs.map(_._2)
+    Seq(), Map(), Map());
+    val lines = ctx.textFile(args(1))
 
-    val words = lines.flatMap( (s:Text) => {
+    val words = lines.flatMap( (s:String) => {
       val tokens = new ListBuffer[String]();
-      for(token <- s.toString().split(" ")) {
-    	  val cleanedToken = token
-    			  	.replaceFirst("^[^a-zA-Z0-9]+", "")
-    			  	.replaceAll("[^a-zA-Z0-9]+$", "");
-    	  if (!cleanedToken.isEmpty() && StringUtils.isAsciiPrintable(cleanedToken)) {
-    		  tokens += cleanedToken;
-    	  }
+      var first = true;
+      for(token <- s.toLowerCase().split(" ")) {
+        if (first) {
+          first = false;
+        } else {
+    	    val cleanedToken = token
+    			  .replaceFirst("^[^a-zA-Z0-9]+", "")
+    			  .replaceAll("[^a-zA-Z0-9]+$", "");
+    	    if (!cleanedToken.isEmpty() && StringUtils.isAsciiPrintable(cleanedToken)) {
+    		    tokens += cleanedToken;
+    	    }
+        }
       }
       tokens;
       }
@@ -64,10 +71,16 @@ object ScalaWordCount {
     	}
     );
 
+    thresholdCounts.saveAsTextFile(args(2))
+    /*
     val output = thresholdCounts.collect();
+    val bw = new BufferedWriter(new FileWriter("WikipediaWords.txt"));
     for (tuple <- output) {
-      System.out.println(tuple._1 + ": " + tuple._2);
+      //System.out.println(tuple._1 + ": " + tuple._2);
+      bw.write(tuple._1 + ": " + tuple._2);
     }
+    bw.close();
+    */
     System.exit(0);
   }
 

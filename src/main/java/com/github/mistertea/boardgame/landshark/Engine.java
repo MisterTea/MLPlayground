@@ -24,6 +24,7 @@ import com.github.mistertea.boardgame.core.ServerMessage;
 import com.github.mistertea.boardgame.core.ServerMessageType;
 import com.github.mistertea.boardgame.core.ThriftB64Utils;
 import com.github.mistertea.boardgame.landshark.player.AbstractPlayer;
+import com.github.mistertea.boardgame.landshark.player.ConsolePlayer;
 import com.github.mistertea.boardgame.landshark.player.SimplePlayer;
 
 public class Engine extends DieRollEngine {
@@ -480,8 +481,8 @@ public class Engine extends DieRollEngine {
 				playerNames);
 
 		Map<String, AbstractPlayer> playerControllers = new HashMap<>();
-		// playerControllers.put("a", new ConsolePlayer("a"));
-		playerControllers.put("a", new SimplePlayer("a"));
+		playerControllers.put("a", new ConsolePlayer("a"));
+		//playerControllers.put("a", new SimplePlayer("a"));
 		playerControllers.put("b", new SimplePlayer("b"));
 		playerControllers.put("c", new SimplePlayer("c"));
 		playerControllers.put("d", new SimplePlayer("d"));

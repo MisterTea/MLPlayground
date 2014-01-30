@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Scanner;
 
 import com.github.mistertea.boardgame.core.CoreCommand;
+import com.github.mistertea.boardgame.core.CoreCommandType;
 import com.github.mistertea.boardgame.core.ThriftB64Utils;
 import com.github.mistertea.boardgame.landshark.LandsharkCommand;
 import com.github.mistertea.boardgame.landshark.LandsharkCommandType;
@@ -27,7 +28,20 @@ public class ConsolePlayer extends AbstractPlayer {
 		if (tokens.length == 0) {
 			return "";
 		}
-		int type = Integer.parseInt(tokens[0]);
+		int type = -1;
+		for (LandsharkCommandType checkType : LandsharkCommandType.values()) {
+			if (checkType.name().equalsIgnoreCase(tokens[0])) {
+				type = checkType.getValue();
+				break;
+			}
+		}
+		for (CoreCommandType checkType : CoreCommandType.values()) {
+			if (checkType.name().equalsIgnoreCase(tokens[0])) {
+				type = checkType.getValue();
+				break;
+			}
+		}
+		System.out.println("INPUT TYPE: " + type);
 		if (type < 0) {
 			return "";
 		}

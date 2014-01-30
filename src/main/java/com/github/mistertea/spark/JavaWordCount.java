@@ -44,6 +44,7 @@ public class JavaWordCount {
     args[0], "JavaWordCount",
     System.getenv("SPARK_HOME"),
     new String[]{});
+
     JavaRDD<Text> lines = ctx.sequenceFile(args[1], Text.class, Text.class).values();
 
     JavaRDD<String> words = lines.flatMap(new FlatMapFunction<Text, String>() {
