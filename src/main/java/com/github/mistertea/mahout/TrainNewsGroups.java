@@ -40,12 +40,13 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 
 public class TrainNewsGroups {
-	private static final int FEATURES = 10000;
+	private static final int FEATURES = 1000000;
 	private static Map<String, BetaClassifier> stopWordProbabilities = new HashMap<>();
+  private static int TMP_MAX=0;
 
 	public static class BetaClassifier {
 		public CircularFifoBuffer<Boolean> pastTrials = new CircularFifoBuffer<>(
-				1000);
+				100);
 
 		public void addTrial(boolean result) {
 			pastTrials.add(result);
@@ -102,17 +103,9 @@ public class TrainNewsGroups {
 
 		File base = new File(args[0]);
 
-		Map<String, Set<Integer>> traceDictionary = new TreeMap<String, Set<Integer>>();
-		FeatureVectorEncoder encoder = new StaticWordValueEncoder("body");
-		encoder.setProbes(2);
-		encoder.setTraceDictionary(traceDictionary);
-		FeatureVectorEncoder bias = new ConstantValueEncoder("Intercept");
-		bias.setTraceDictionary(traceDictionary);
-		FeatureVectorEncoder lines = new ConstantValueEncoder("Lines");
-		lines.setTraceDictionary(traceDictionary);
-		FeatureVectorEncoder logLines = new ConstantValueEncoder("LogLines");
-		logLines.setTraceDictionary(traceDictionary);
 		Dictionary newsGroups = new Dictionary();
+		
+		Dictionary newsGroupWords = new Dictionary();
 
 		OnlineLogisticRegression learningAlgorithm = new OnlineLogisticRegression(
 				20, FEATURES, new L1()).alpha(1).stepOffset(1000)
@@ -170,6 +163,8 @@ public class TrainNewsGroups {
 				}
 				countWords(analyzer, words, reader);
 				
+				/*
+        System.out.println("Filtering stopwords");
 				for (String s : words) {
 					BetaClassifier probabiltyClassifier = stopWordProbabilities.get(s);
 					if (probabiltyClassifier == null) {
@@ -185,14 +180,25 @@ public class TrainNewsGroups {
 						words.remove(entry.getKey(), 1000000);
 					}
 				}
+				System.out.println("Done");
+				*/
+				
+				if (words.isEmpty()) {
+				  System.out.println("No frequent words.  Skipping example.");
+				  continue;
+				}
 
 				Vector v = new RandomAccessSparseVector(FEATURES);
-				bias.addToVector((String) null, 1, v);
-				lines.addToVector((String) null, lineCount / 30, v);
-				logLines.addToVector((String) null, Math.log(lineCount + 1), v);
-				for (String word : words.elementSet()) {
-					encoder.addToVector(word, Math.log(1 + words.count(word)),
-							v);
+				v.set(0, 1.0); // bias
+				v.set(1, lineCount/30); // line count
+				v.set(2, Math.log(lineCount+1)); // log(line count)
+				for (com.google.common.collect.Multiset.Entry<String> wordEntry : words.entrySet()) {
+				  String word = wordEntry.getElement();
+				  if (newsGroupWords.intern(word)>TMP_MAX) {
+				    TMP_MAX = newsGroupWords.intern(word);
+	          System.out.println(newsGroupWords.intern(word));
+				  }
+				  v.set(newsGroupWords.intern(word) + 3, Math.log(1 + wordEntry.getCount()));
 				}
 
 				double mu = Math.min(k + 1, 200);
@@ -218,7 +224,7 @@ public class TrainNewsGroups {
 									.values().get(estimated));
 				}
 				learningAlgorithm.close();
-
+				
 				reader.close();
 			}
 		}

@@ -1,4 +1,5 @@
 namespace java com.github.mistertea.herosiege
+namespace scala com.github.mistertea.herosiege.scala
 
 struct Stat {
 	1:i32 current,

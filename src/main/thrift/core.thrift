@@ -1,4 +1,5 @@
 namespace java com.github.mistertea.boardgame.core
+namespace scala com.github.mistertea.boardgame.core.scala
 
 struct DieRoll {
   1:i32 numDice,

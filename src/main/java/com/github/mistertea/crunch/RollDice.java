@@ -44,9 +44,10 @@ public class RollDice {
 					}
 				}, PTypes.thrifts(PlayerServerState.class,
 						rawInput.getTypeFamily()));
-		states.write(new FileTargetImpl(new Path("/user/jgauci/output.txt"),
-				PlayerServerStateOutputFormat.class,
-				new SequentialFileNamingScheme()));
+    // TODO: Fix this old code
+		//states.write(new FileTargetImpl(new Path("/user/jgauci/output.txt"),
+    //PlayerServerStateOutputFormat.class,
+    //new SequentialFileNamingScheme()));
 
 		pipeline.done();
 	}

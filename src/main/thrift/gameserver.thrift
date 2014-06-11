@@ -1,4 +1,6 @@
 namespace java com.github.mistertea.boardgame.landshark
+namespace scala com.github.mistertea.boardgame.landshark.scala
+
 include "core.thrift"
 include "landshark.thrift"
 
